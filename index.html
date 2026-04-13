@@ -3,53 +3,57 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>空き家レポーター マップ</title>
+<title>空き家マップ</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Noto Sans JP', sans-serif; background: #0f1117; color: #e0e0e0; }
+  body { font-family: 'Noto Sans JP', sans-serif; background: #f5f5f7; color: #333; }
   #header {
-    background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 100%);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: #fff;
+    border-bottom: 1px solid #e8e8ed;
     padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
     position: relative; z-index: 1000;
   }
-  #header h1 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  .legend { display: flex; gap: 16px; font-size: 12px; }
+  #header h1 { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: #666; }
   .legend-item { display: flex; align-items: center; gap: 5px; }
   .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .dot-approved { background: #f44336; }
-  .dot-review { background: #ffb300; }
+  .dot-approved { background: #dc2626; }
+  .dot-review { background: #d97706; }
   #map { width: 100%; height: calc(100dvh - 52px); }
   .leaflet-popup-content-wrapper {
-    background: #1a1d2e !important; color: #e0e0e0 !important;
-    border-radius: 10px !important; border: 1px solid rgba(255,255,255,0.08) !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+    background: #fff !important; color: #333 !important;
+    border-radius: 10px !important; border: 1px solid #e8e8ed !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
     font-family: 'Noto Sans JP', sans-serif !important;
   }
-  .leaflet-popup-tip { background: #1a1d2e !important; }
-  .popup-title { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+  .leaflet-popup-tip { background: #fff !important; }
+  .popup-title { font-weight: 700; font-size: 13px; color: #1a1a1a; margin-bottom: 6px; }
   .popup-status {
     display: inline-block; font-size: 11px; padding: 2px 8px;
     border-radius: 20px; font-weight: 700; margin-bottom: 4px;
   }
-  .status-approved { background: rgba(244,67,54,0.15); color: #f44336; }
-  .status-review { background: rgba(255,179,0,0.15); color: #ffb300; }
+  .status-approved { background: #fde8e8; color: #dc2626; }
+  .status-review { background: #fef3e2; color: #d97706; }
   .popup-date { font-size: 11px; color: #888; }
   .popup-link { font-size: 11px; margin-top: 4px; }
-  .popup-link a { color: #5DCAA5; text-decoration: none; }
+  .popup-link a { color: #2563eb; text-decoration: none; }
   #loading {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    z-index: 2000; background: #1a1d2e; padding: 20px 32px;
-    border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); font-size: 14px; display: none;
+    z-index: 2000; background: #fff; padding: 20px 32px;
+    border-radius: 12px; border: 1px solid #e8e8ed; font-size: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1); display: none;
   }
   #error-banner {
     display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-    z-index: 2000; background: rgba(244,67,54,0.9); color: #fff;
+    z-index: 2000; background: rgba(220,38,38,0.9); color: #fff;
     padding: 10px 20px; border-radius: 8px; font-size: 13px; max-width: 90%; text-align: center;
   }
-  .count-badge { background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .count-badge {
+    background: #f0f0f3; padding: 4px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 700; color: #1a1a1a;
+  }
 </style>
 </head>
 <body>
@@ -68,24 +72,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
-// ====================================================================
-// ここにスプレッドシートの公開CSVのURLを貼り付ける
-// ====================================================================
 var SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSyNZ7FFEtTdeLs0miIB5gLkvnaOyHJV2-ok1OPiinzUyUnEIthig-LKXUdBpy5ocF85oQVhxo0CniF/pub?gid=1932234734&single=true&output=csv';
 
-// 列番号（0始まり） - スプレッドシートの実際の並びに対応
-var COL_TIMESTAMP = 0;    // A
-var COL_PREF = 3;         // D: 都道府県
-var COL_CITY_START = 4;   // E〜I: 市区町村（5列）
-var COL_CITY_END = 8;
-var COL_MAPS_URL = 9;     // J: Google MapsのURL
-var COL_LAT = 23;         // X: 緯度
-var COL_LNG = 24;         // Y: 経度
-var COL_STATUS = 25;      // Z: ステータス
+
+
+
+
+
+
+
+
 
 var map = L.map('map').setView([35.6812, 139.7671], 11);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
 }).addTo(map);
 
@@ -93,34 +93,59 @@ function createIcon(color) {
   return L.divIcon({
     className: '',
     html: '<div style="width:14px;height:14px;border-radius:50%;background:' + color +
-          ';border:2px solid rgba(255,255,255,0.8);box-shadow:0 0 8px ' + color + '88;"></div>',
+          ';border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
     iconSize: [14, 14], iconAnchor: [7, 7], popupAnchor: [0, -10]
   });
 }
 
-var iconApproved = createIcon('#f44336');
-var iconReview = createIcon('#ffb300');
+var iconApproved = createIcon('#dc2626');
+var iconReview = createIcon('#d97706');
+
+function findCol(headers, keyword) {
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i].indexOf(keyword) >= 0) return i;
+  }
+  return -1;
+}
+
+function findCityCols(headers) {
+  var cols = [];
+  for (var i = 0; i < headers.length; i++) {
+    if (headers[i].indexOf('市区町村') >= 0) cols.push(i);
+  }
+  return cols;
+}
 
 function loadData() {
   var el = document.getElementById('loading');
   el.style.display = 'block';
 
   Papa.parse(SHEET_CSV_URL, {
-    download: true,
-    skipEmptyLines: true,
+    download: true, skipEmptyLines: true,
     complete: function(results) {
       el.style.display = 'none';
       var rows = results.data;
       if (rows.length < 2) return;
+
+      var headers = rows[0];
+      var cLat = findCol(headers, '緯度');
+      var cLng = findCol(headers, '経度');
+      var cStatus = findCol(headers, 'ステータス');
+      var cPref = findCol(headers, '都道府県');
+      var cMaps = findCol(headers, 'Maps');
+      var cTime = 0;
+      var cityCols = findCityCols(headers);
+
+      if (cLat < 0 || cLng < 0) return;
 
       var count = 0;
       var bounds = [];
 
       for (var i = 1; i < rows.length; i++) {
         var r = rows[i];
-        var lat = parseFloat(r[COL_LAT]);
-        var lng = parseFloat(r[COL_LNG]);
-        var status = (r[COL_STATUS] || '').trim();
+        var lat = parseFloat(r[cLat]);
+        var lng = parseFloat(r[cLng]);
+        var status = cStatus >= 0 ? (r[cStatus] || '').trim() : '';
 
         if (isNaN(lat) || isNaN(lng)) continue;
         if (status !== '承認' && status !== '審査中' && status !== '未審査') continue;
@@ -129,19 +154,19 @@ function loadData() {
         var icon = (status === '承認') ? iconApproved : iconReview;
         var statusClass = (displayStatus === '承認') ? 'status-approved' : 'status-review';
 
-        var pref = r[COL_PREF] || '';
+        var pref = cPref >= 0 ? (r[cPref] || '') : '';
         var city = '';
-        for (var c = COL_CITY_START; c <= COL_CITY_END; c++) {
-          if (r[c]) { city = r[c]; break; }
+        for (var j = 0; j < cityCols.length; j++) {
+          if (r[cityCols[j]]) { city = r[cityCols[j]]; break; }
         }
 
-        var mapsUrl = r[COL_MAPS_URL] || '';
-        var timestamp = r[COL_TIMESTAMP] || '';
+        var mapsUrl = cMaps >= 0 ? (r[cMaps] || '') : '';
+        var timestamp = r[cTime] || '';
 
-        var popup = '<div class="popup-status ' + statusClass + '">' + displayStatus + '</div>' +
-                    '<div class="popup-title">' + pref + ' ' + city + '</div>' +
-                    '<div class="popup-date">' + timestamp + '</div>' +
-                    (mapsUrl ? '<div class="popup-link"><a href="' + mapsUrl + '" target="_blank">Google Mapsで開く</a></div>' : '');
+        var popup = '<div class="popup-status ' + statusClass + '">' + displayStatus + '</div>'
+          + '<div class="popup-title">' + pref + ' ' + city + '</div>'
+          + '<div class="popup-date">' + timestamp + '</div>'
+          + (mapsUrl ? '<div class="popup-link"><a href="' + mapsUrl + '" target="_blank">Google Mapsで開く</a></div>' : '');
 
         L.marker([lat, lng], {icon: icon}).addTo(map).bindPopup(popup);
         bounds.push([lat, lng]);
@@ -154,7 +179,7 @@ function loadData() {
     error: function() {
       el.style.display = 'none';
       var banner = document.getElementById('error-banner');
-      banner.textContent = 'データの読み込みに失敗しました。URLを確認してください。';
+      banner.textContent = 'データの読み込みに失敗しました';
       banner.style.display = 'block';
     }
   });
@@ -168,3 +193,4 @@ setInterval(function() {
 </script>
 </body>
 </html>
+
